@@ -8,7 +8,9 @@ use alloy::transports::http::reqwest::Url;
 use heimdall_decompiler::{decompile, DecompilerArgsBuilder};
 use once_cell::sync::Lazy;
 use serde::Deserialize;
+use std::sync::mpsc;
 use std::sync::Arc;
+use std::thread;
 
 static SALT: Lazy<U256> = Lazy::new(|| {
     B256::from_hex("0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc")
@@ -57,17 +59,38 @@ async fn process_form(form: FormData) -> Result<String, Box<dyn std::error::Erro
         .build()
         .unwrap();
 
-    let decompiled = decompile(args)
-        .await
-        .map_err(|e| format!("Decompile failed: {}", e))?;
+    // 使用mpsc通道传递decompile结果
+    let (tx, rx) = mpsc::channel();
 
-    println!("Decompiled {:?}", decompiled);
+    // 在单独线程中创建新的运行时，设置128MB栈空间
+    thread::Builder::new()
+        .stack_size(128 * 1024 * 1024)
+        .spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            let res = rt.block_on(async {
+                decompile(args)
+                    .await
+                    .map_err(|e| format!("Decompile failed: {}", e))
+            });
+            tx.send(res).expect("发送decompile结果失败");
+        })
+        .expect("线程启动失败");
+
+    // 避免阻塞异步线程，用spawn_blocking包装接收操作
+    let decompiled_result =
+        tokio::task::spawn_blocking(move || rx.recv().expect("接收decompile结果失败")).await?;
+
+    let decompiled = match decompiled_result {
+        Ok(result) => result,
+        Err(e) => return Err(format!("Decompile error: {}", e).into()),
+    };
 
     let source = decompiled
         .source
         .ok_or("Decompile failed: source is None")?;
-
-    println!("Source {:?}", source);
 
     let result = if is_proxy {
         format!(
