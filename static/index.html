@@ -3,61 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Heimdall decompiler</title>
+    <title>Heimdall Decompiler</title>
     <style>
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             height: 100vh;
+            background: #f0f2f5;
         }
-
         .left-column {
-            width: 20%;
+            width: 25%;
             padding: 20px;
+            background: #ffffff;
+            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
             box-sizing: border-box;
-            border-right: 1px solid #ccc;
         }
-
         .right-column {
-            width: 80%;
+            width: 75%;
             padding: 0;
             box-sizing: border-box;
+            position: relative;
             display: flex;
             justify-content: center;
             align-items: center;
+            background: #e9ecef;
         }
-
         .form-group {
             margin-bottom: 20px;
         }
-
         .form-group label {
             display: block;
-            margin-bottom: 5px;
+            margin-bottom: 8px;
+            color: #333;
         }
-
         .form-group input {
             width: 100%;
-            padding: 8px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
             box-sizing: border-box;
         }
-
         .form-group button {
-            padding: 10px 20px;
+            width: 100%;
+            padding: 12px;
             background-color: #007BFF;
-            color: white;
+            color: #fff;
             border: none;
+            border-radius: 4px;
+            font-size: 16px;
             cursor: pointer;
+            transition: background-color 0.3s ease;
         }
-
         .form-group button:hover {
             background-color: #0056b3;
         }
-
         #container {
+            width: 90%;
+            height: 90%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        /* Loading spinner overlay */
+        .spinner-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        .spinner-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #007BFF;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+        .loading-text {
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -77,6 +123,10 @@
 </div>
 <div class="right-column">
     <div id="container"></div>
+    <div id="spinnerOverlay" class="spinner-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading...</div>
+    </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.30.1/min/vs/loader.js"></script>
 <script>
@@ -85,13 +135,26 @@
         window.editor = monaco.editor.create(document.getElementById('container'), {
             value: '',
             language: 'javascript',
-            readOnly: true  // 设置为只读模式
+            readOnly: true
         });
     });
+
+    function showLoading() {
+        const overlay = document.getElementById('spinnerOverlay');
+        overlay.classList.add('active');
+    }
+
+    function hideLoading() {
+        const overlay = document.getElementById('spinnerOverlay');
+        overlay.classList.remove('active');
+    }
 
     function submitForm() {
         const rpc = document.getElementById('rpc').value;
         const address = document.getElementById('address').value;
+
+        // Show loading animation
+        showLoading();
 
         fetch('/submit', {
             method: 'POST',
@@ -104,7 +167,14 @@
             .then(data => {
                 window.editor.setValue(data);
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('Error:', error);
+                window.editor.setValue('Error: ' + error);
+            })
+            .finally(() => {
+                // Hide loading animation
+                hideLoading();
+            });
     }
 </script>
 </body>
