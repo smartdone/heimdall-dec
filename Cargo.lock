@@ -2969,6 +2969,8 @@ dependencies = [
  "alloy 0.11.1",
  "alloy-primitives",
  "heimdall-decompiler",
+ "hex",
+ "once_cell",
  "serde",
  "serde_json",
 ]
