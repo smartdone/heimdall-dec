@@ -45,10 +45,16 @@ async fn process_form(form: FormData) -> Result<String, Box<dyn std::error::Erro
 
     println!("Proxy address {:?}", impl_address);
 
-    let code = provider
+    let mut code = provider
         .get_code_at(target_address.clone())
         .await
         .map_err(|e| format!("Get code failed: {}", e))?;
+    if is_proxy {
+        code = provider
+            .get_code_at(impl_address.clone())
+            .await
+            .map_err(|e| format!("Get code failed: {}", e))?;
+    }
 
     let encoded_code = encode(code);
 
